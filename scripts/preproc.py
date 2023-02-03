@@ -2,35 +2,44 @@ import numpy as np
 import pandas as pd
 from datetime import datetime as dt
 
+# https://www.kaggle.com/code/avanwyk/encoding-cyclical-features-for-deep-learning
+def encode(data, col, max_val):
+	data[col + '_sin'] = np.sin(2 * np.pi * data[col]/max_val)
+	data[col + '_cos'] = np.cos(2 * np.pi * data[col]/max_val)
+	return data
+
 def load_data():
 	df = pd.read_csv('data/dengue_features_train.csv')
 	target = pd.read_csv('data/dengue_labels_train.csv')
 	test_df = pd.read_csv('data/dengue_features_test.csv')
-	full_df = pd.merge(df, target,  how='inner', left_on=['city', 'year', 'weekofyear'], right_on = ['city', 'year', 'weekofyear'])
-	full_df['date'] = pd.to_datetime(full_df['week_start_date'])
+	train_df = pd.merge(df, target,  how='inner', left_on=['city', 'year', 'weekofyear'], right_on = ['city', 'year', 'weekofyear'])
+	train_df['date'] = pd.to_datetime(train_df['week_start_date'])
 	test_df['date'] = pd.to_datetime(test_df['week_start_date'])
-	full_df.sort_values(by= ['city', 'date'], ascending=[False, True])
+	train_df.sort_values(by= ['city', 'date'], ascending=[False, True])
 	test_df.sort_values(by= ['city', 'date'], ascending=[False, True])
-	full_df = full_df.bfill()
+	train_df = train_df.bfill()
 	test_df = test_df.bfill()
-	full_sj = full_df[full_df['city'] == 'sj']
-	full_iq = full_df[full_df['city'] == 'iq']
+	train_df = encode(train_df, 'weekofyear', 51)
+	test_df = encode(test_df, 'weekofyear', 51)
+	train_sj = train_df[train_df['city'] == 'sj']
+	train_iq = train_df[train_df['city'] == 'iq']
 	test_sj = test_df[test_df['city'] == 'sj']
 	test_iq = test_df[test_df['city'] == 'iq']
 
-	return full_sj, full_iq, test_sj, test_iq
+	return train_sj, train_iq, test_sj, test_iq
 
-def split_df(full_df, test_size):
-	N = int(len(full_df) * (1 - test_size))
-	train = full_df[: N]
-	val  = full_df[N:]
+def split_df(df, test_size):
+	N = int(len(df) * (1 - test_size))
+	train = df[: N]
+	val  = df[N:]
 	print('Train size: {}, validation size: {}'.format(len(train), len(val)))
 	return train, val
 
-def get_xy(df, test_size, train_cols, target_col):
+def get_xxyy(df, test_size, train_cols, target_col):
 	train, val = split_df(df, test_size)
-	X_train, X_val, y_train, y_val =	train[train_cols], \
-										val[train_cols], \
-										train[target_col], \
-										val[target_col]
-	return X_train, X_val, y_train, y_val
+	return dict(
+			X_train = train[train_cols],
+			X_val = val[train_cols],
+			y_train = train[target_col],
+			y_val = val[target_col]
+		)
